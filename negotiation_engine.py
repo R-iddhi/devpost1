@@ -336,6 +336,31 @@ def validate_agent_response(response, allowed_decisions):
 # CALL AI AGENT
 # ==================================================
 
+import re as _re
+
+_MONEY = _re.compile(r"\$\s?\d")
+
+
+def scrub_money_text(response):
+    """Remove dollar amounts written by the model. Python computes all money values."""
+    cleaned = dict(response)
+    for field in ("message", "reason"):
+        text = cleaned.get(field)
+        if isinstance(text, str) and _MONEY.search(text):
+            sentences = _re.split(r"(?<=[.!?])\s+", text.strip())
+            kept = [s for s in sentences if not _MONEY.search(s)]
+            cleaned[field] = " ".join(kept).strip()
+    if not cleaned.get("message"):
+        decision = cleaned.get("decision", "decision")
+        discount = cleaned.get("discount_percent")
+        days = cleaned.get("payment_window_days")
+        if discount is not None and days is not None:
+            cleaned["message"] = f"Decision: {decision}. Discount {discount}%, payment window {days} days."
+        else:
+            cleaned["message"] = f"Decision: {decision}."
+    return cleaned
+
+
 def call_agent(
     system_prompt,
     user_prompt,
@@ -369,10 +394,12 @@ def call_agent(
             f"Agent execution failed: {exc}"
         ) from exc
 
-    return validate_agent_response(
+    validated = validate_agent_response(
         response,
         allowed_decisions
     )
+
+    return scrub_money_text(validated)
 
 
 # ==================================================
