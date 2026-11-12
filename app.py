@@ -45,6 +45,9 @@ st.set_page_config(
     layout="wide",
 )
 
+import ui_theme
+ui_theme.apply()
+
 MAX_DISCOUNT = 6
 
 FREELANCER_POLICY = {
